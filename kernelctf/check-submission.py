@@ -4,6 +4,7 @@ import sys
 import json
 import jsonschema
 import hashlib
+import re
 from utils import *
 
 PUBLIC_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS1REdTA29OJftst8xN5B5x8iIUcxuK6bXdzF8G1UXCmRtoNsoQ9MbebdRdFnj6qZ0Yd7LwQfvYC2oF/pub?output=csv"
@@ -27,7 +28,7 @@ checkAtLeastOne(prFiles, "There are no files in the submission")
 prFiles = checkList(prFiles, lambda f: f.startswith(POC_FOLDER), f"The following files are outside of the `{POC_FOLDER}` folder which is not allowed")
 
 subDirName = checkOnlyOne(subdirEntries(prFiles, POC_FOLDER), "Only one submission is allowed per PR. Found multiple submissions")
-checkRegex(subDirName, r"^CVE-\d+-\d+(_lts|_cos|_mitigation)+(_\d+)?$", f"The submission folder name is invalid (`{subDirName}`)")
+checkRegex(subDirName, r"^CVE-\d+-\d+(_lts|_cos|_mitigation|_android\d+)+(_\d+)?$", f"The submission folder name is invalid (`{subDirName}`)")
 
 print(f"[-] Processing submission... Folder = {subDirName}")
 cve, *targets = subDirName.split('_')
@@ -38,12 +39,11 @@ printList("Submission files", files)
 exploitFolders = subdirEntries(files, EXPLOIT_DIR)
 printList("Exploit folders", exploitFolders)
 
-validExploitFolderPrefixes = [f"{t}-" for t in targets] + ["extra-"]
+validExploitFolderPrefixes = [f"{t}-" for t in targets]
 checkList(exploitFolders, lambda f: any(f.startswith(p) for p in validExploitFolderPrefixes),
     f"The submission folder name (`{subDirName}`) is not consistent with the exploits in the `{EXPLOIT_DIR}` folder. " +
     f"Based on the folder name (`{subDirName}`), the subfolders are expected to be prefixed with one of these: {', '.join(f'`{t}-`' for t in targets)}, " +
-    "but this is not true for the following entries: <LIST>. You can put the extra files into a folder prefixed with `extra-`, " +
-    "but try to make it clear what's the difference between this exploit and the others.")
+    "but this is not true for the following entries: <LIST>.")
 
 reqFilesPerExploit = ["Makefile", "exploit.c", "exploit"]
 
@@ -84,6 +84,16 @@ if isinstance(submissionIds, str):
 submissionIds.sort()
 print(f"[-] Submission IDs = {submissionIds}")
 
+# WARNING: metadata is not trusted and needs to be sanitized
+for x in submissionIds:
+    if not re.match(r"^exp\d+$", x):
+        fail(f"Error: invalid exp_id '{x}'")
+
+if "exploits" in metadata:
+    for target in metadata["exploits"].keys():
+        if not re.match(r"^(lts|cos|mitigation)-[a-z0-9.-]+$", target):
+            fail(f"Error: invalid target '{target}'")
+
 publicCsv = fetch(PUBLIC_CSV_URL, "public.csv")
 publicSheet = { x["ID"]: x for x in parseCsv(publicCsv) }
 # print(json.dumps(publicSheet, indent=4))
@@ -98,12 +108,8 @@ submissionIds.sort()
 flagRegex = r"kernelCTF\{(?:[^:]+:)?(?:v1:([^:]+)|v2:([^:]+):([^:]*)):\d+\}"
 def flagTarget(flag):
     match = checkRegex(flag, flagRegex, f"The flag (`{flag}`) is invalid")
-    if match.group(1):
-        # v1 flag
-        return match.group(1)
-
-    # v2 flag
-    return match.group(2)
+    target = match.group(1) or match.group(2)  # v1 or v2 flag
+    return "mitigation-6.1" if target == "mitigation-6.1-v2" else target
 
 targetFlagTimes = {}
 flags = []
@@ -136,8 +142,6 @@ for submissionId in submissionIds:
         error(f"The CVE on the public spreadsheet for submission `{submissionId}` is `{publicData['CVE']}` but the PR is for `{cve}`.")
 
 flagTargets = set([flagTarget(flag) for flag in flags])
-if "mitigation-6.1-v2" in flagTargets:
-    flagTargets = flagTargets - {"mitigation-6.1-v2"} | {"mitigation-6.1"}
 print(f"[-] Got flags for the following targets: {', '.join(flagTargets)}")
 checkList(flagTargets, lambda t: t in exploitFolders, f"Missing exploit for target(s)")
 checkList(exploitFolders, lambda t: t in flagTargets, f"Found extra exploit(s) without flag submission", True)
