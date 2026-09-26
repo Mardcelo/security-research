@@ -4,25 +4,29 @@ from utils import *
 from lxml import etree
 
 releases = []
+LTS_VERSIONS = ["6.12"] # ["6.6", "6.12"]
+COS_MILESTONES = [] # [109, 113, 121]
 
 def add_release(release_id, branch=None):
     url = f"https://storage.googleapis.com/kernelctf-build/releases/{release_id}/bzImage"
     status_code = requests.head(url).status_code
     if status_code == 200:
-        print("  -> Release already exists, skipping...")
+        print(f"  -> Release {release_id} already exists, skipping...")
         return
     if status_code != 403:
         fail(f"Unexpected HTTP status code for release check: {status_code} (url = {url})")
+    print(f"  -> Adding release {release_id}")
 
     global releases
     releases.append({ "releaseId": release_id, "branch": branch })
 
-for lts_version in ["6.6", "6.12"]:
+for lts_version in LTS_VERSIONS:
     latest_lts = run(f"git ls-remote --tags --sort='-v:refname' https://github.com/gregkh/linux 'v{lts_version}.*[0-9]'")[0].split("refs/tags/")[1]
     print(f"Latest LTS {lts_version}: {latest_lts}")
     add_release(f"lts-{latest_lts[1:]}")
+    add_release(f"lts-{latest_lts[1:]}-kasan")
 
-for cos_milestone in [109, 113, 121]:
+for cos_milestone in COS_MILESTONES:
     release_notes = fetch(f"https://cloud.google.com/feeds/cos-{cos_milestone}-release-notes.xml")
     tree = etree.XML(release_notes.encode('utf-8'))
     entries = tree.xpath("//*[local-name() = 'content']/text()")

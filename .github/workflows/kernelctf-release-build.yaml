@@ -61,15 +61,30 @@ jobs:
           
           echo "Release ${RELEASE_ID} does not exist yet, proceeding with build"
       
+      - name: Cleanup space (remove unused deps)
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf /usr/local/lib/android
+
+
       - name: Install Linux build prerequisites
         if: steps.detect.outputs.type == 'linux'
         run: |
           sudo apt-get update
-          sudo apt install -yq --no-install-recommends build-essential flex bison bc ca-certificates libelf-dev libssl-dev cpio pahole
+          sudo apt install -yq --no-install-recommends build-essential flex bison bc ca-certificates libelf-dev libssl-dev cpio pahole wget curl gnupg lsb-release software-properties-common
+          ./ensure_llvm.sh
+          sudo apt-get clean
       
       - name: Install Android build prerequisites
         if: steps.detect.outputs.type == 'android'
-        run: sudo apt install -yq --no-install-recommends git
+        run: |
+          sudo apt-get update
+          sudo apt install -yq --no-install-recommends git
+          
+          sudo apt-get clean
       
       - name: Setup Go
         if: steps.detect.outputs.type == 'android'
@@ -151,7 +166,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{inputs.releaseId}}
-          path: kernelctf/releases/${{inputs.releaseId}}
+          path: kernelctf/releases/${{inputs.releaseId}}*
           if-no-files-found: error
           include-hidden-files: true
 
@@ -163,7 +178,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: ${{inputs.releaseId}}
-          path: ./kernelctf/releases/${{inputs.releaseId}}
+          path: ./kernelctf/releases/
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -173,8 +188,9 @@ jobs:
       - name: Upload release
         uses: 'google-github-actions/upload-cloud-storage@v2'
         with:
-          path: kernelctf/releases/${{inputs.releaseId}}
+          path: kernelctf/releases
           destination: kernelctf-build/releases
+          parent: false
           predefinedAcl: publicRead
           gzip: false # most of the files are compressed already, do not compress them again
           process_gcloudignore: false # removes warnings that .gcloudignore file does not exist

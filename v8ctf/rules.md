@@ -12,8 +12,8 @@ All other exploits are considered n-day submissions.
 The following rules apply to the eligibility of exploits:
 * Your exploit needs to exfiltrate the flag from our v8CTF infrastructure.
 * Only the first submission for a given bug that leads to the initial memory corruption is eligible.
-* Only the first submission per deployed V8 version in v8CTF is eligible based on the timestamp of the form submission.
-  * 0-day submissions are exempt from this limit.
+* N-day submissions are only eligible if no exploit of any kind (0-day or n-day) has been submitted yet for the currently deployed V8 version.
+  * Once the first submission for a deployed version has been received, all subsequent submissions for that version must be 0-days.
 * N-day submissions will only be accepted after the officially announced time, based on the timestamp embedded in the flag. Flags are updated automatically every hour on the hour.
 * Exploits need to be reasonably fast and stable. We accept submissions with an average runtime of less than 5 minutes and at least 80% success rate.
 * Valid submissions get a reward of $10,000.
@@ -25,7 +25,7 @@ The following rules apply to the eligibility of exploits:
 1. Exploit the bug and capture the flag from our v8CTF environment.
     1. The flag format is v8CTF{$unix_timestamp:$signature}. For n-day submissions, please verify that the timestamp is past the announced start time since the automation might introduce a short delay in flag updates.
 1. Create a .tar.gz archive of your exploit and calculate its sha256, e.g. with `sha256sum exploit.tar.gz`.
-    1. Provide an archive that can be verified using our reproduction setup (see [repro-chrome/README.md](repro-chrome/README.md))
+    1. Provide an archive that can be verified using our reproduction setup (see [kctf/challenge-templates/repro-chrome/README.md](kctf/challenge-templates/repro-chrome/README.md))
     1. Please double check that the exploit doesn’t have any external dependencies.
 1. Fill out [this form](https://docs.google.com/forms/d/e/1FAIpQLScoWE5-XoF85dXMjWKTIrJGTEfCybFaktsYZMCZ86iFPrW8Ew/viewform?usp=header_link) with the flag and the exploit sha256 sum.
     1. For 0-day submissions, please use the same email address you reported the bug from.
